@@ -1,8 +1,34 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 
+const client = require('prom-client');
+const collectDefaultMetrics = client.collectDefaultMetrics;
+
 const app = express();
 const PORT = 3000;
+
+// Collect default metrics (CPU, memory, etc.)
+collectDefaultMetrics();
+
+// Create a custom counter metric
+const httpRequestCounter = new client.Counter({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method', 'endpoint']
+});
+
+// Middleware to count requests
+app.use((req, res, next) => {
+    httpRequestCounter.labels(req.method, req.path).inc();
+    next();
+});
+
+// Expose metrics endpoint
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+});
+
 
 app.use(bodyParser.json());
 
@@ -65,10 +91,14 @@ app.delete('/students/:id', (req, res) => {
 });
 
 
-// added comment
+
 
 
 // Start server
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// added comment
+
+module.exports = app; // Export app for testing
